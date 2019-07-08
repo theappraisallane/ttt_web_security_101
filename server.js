@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const express = require('express');
+const csurf = require('csurf');
 const morgan = require('morgan');
 const app = express();
 const bodyParser = require('body-parser');
@@ -13,6 +14,8 @@ const io = require('socket.io')(http);
 app.use(siofu.router);
 
 const siteRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/;
+const originalIndex = fs.readFileSync(__dirname + '/index.html').toString();
+const csrfRegex = /_csrf: 'xxx'/g;
 
 let host;
 
@@ -154,8 +157,11 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(csurf());
+
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+  const index = originalIndex.replace(csrfRegex, `_csrf: \'${req.csrfToken()}\'`);
+  res.type('text/html').send(index);
 });
 
 app.get('/me', (req, res) => {

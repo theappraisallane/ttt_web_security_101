@@ -90,7 +90,7 @@
     $.ajax({
       url: '/me',
       type: 'PUT',
-      data: JSON.stringify({ name: name }),
+      data: JSON.stringify({ name: name, _csrf: 'xxx' }),
       contentType: 'application/json; charset=utf-8',
       success: success
     })
@@ -179,7 +179,7 @@
       $.ajax({
         url: '/messages',
         type: 'POST',
-        data: JSON.stringify({ text: text }),
+        data: JSON.stringify({ text: text, _csrf: 'xxx' }),
         contentType: 'application/json; charset=utf-8'
       });
       return false;
