@@ -1,0 +1,191 @@
+<!doctype html>
+<html>
+<head>
+    <title>Kind of Secure Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font: 13px Helvetica, Arial;
+        }
+
+        form {
+            display: block;
+            background: #000;
+            padding: 3px;
+            position: fixed;
+            bottom: 0;
+            height: 40px;
+            width: 100%;
+        }
+
+        #m {
+            border: 0;
+            padding: 10px;
+            width: 83%;
+            margin-right: .5%;
+        }
+
+        #f {
+            border: 0;
+            width: 9%;
+        }
+
+        form button {
+            right: 0;
+            width: 6%;
+            background: rgb(130, 224, 255);
+            border: none;
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        #messagesContainer {
+            display: block;
+            padding-bottom: 40px;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #messages li {
+            padding: 5px 10px;
+        }
+
+        #messages li:nth-child(odd) {
+            background: #eee;
+        }
+
+        #messages li a img {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="messagesContainer">
+    <ul id="messages"></ul>
+</div>
+<form action="">
+    <input id="m" autocomplete="off"/>
+    <input id="f" type="file" accept="image/*">
+    <button>Send</button>
+</form>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/siofu/client.js"></script>
+<script src="https://code.jquery.com/jquery-1.11.1.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-cookie@2/src/js.cookie.min.js"></script>
+<script>
+  var name;
+  var socket;
+  var sessionId;
+
+  function saveName(name, success) {
+    $.ajax({
+      url: '/me',
+      type: 'PUT',
+      data: JSON.stringify({ name: name }),
+      contentType: 'application/json; charset=utf-8',
+      success: success
+    })
+  }
+
+  function startSocket() {
+    socket = io();
+    socket.on('connect', function () {
+      socket.emit('hello', sessionId);
+    });
+    socket.on('message', function (message) {
+      appendMessage(message);
+      scrollToBottom();
+    });
+    var uploader = new SocketIOFileUpload(socket);
+    uploader.listenOnInput($('#f')[0]);
+  }
+
+  function appendMessage(message) {
+    var messagesElement = $('#messages');
+    var htmlText = '<li>' + message.author + ': ';
+    switch (message.type) {
+      case 'text':
+        // horrible XSS injection point
+        htmlText += message.text;
+        break;
+      case 'media':
+        htmlText += '<br><img src="' + message.pictureUrl + '"/>';
+        break;
+      case 'url':
+        htmlText += message.text + '<br>';
+        htmlText += '<a target="_blank" href="' + message.link + '"><img src="' + message.pictureUrl + '"/></a>';
+        break;
+    }
+    htmlText += '</li>';
+    messagesElement.append(htmlText);
+  }
+
+  function scrollToBottom() {
+    setTimeout(function () {
+      $('html, body').animate({ scrollTop: $(document).height() - $(window).height() + 40 });
+    }, 500);
+  }
+
+  function renderMessages(messages) {
+    for (var i = 0; i < messages.length; i++) {
+      appendMessage(messages[i]);
+    }
+    scrollToBottom();
+    startSocket();
+  }
+
+  function loadMessages() {
+    $.ajax({
+      url: '/messages',
+      success: function (messages) {
+        renderMessages(messages);
+      }
+    })
+  }
+
+  $(function () {
+    sessionId = Cookies.get('sessionId');
+    $.ajax({
+      url: '/me',
+      success: function (data) {
+        if (data.name) {
+          name = data.name;
+          loadMessages();
+          return;
+        }
+        var name;
+        while (!name) {
+          name = prompt('Please enter your name:');
+        }
+        saveName(name, loadMessages);
+      }
+    })
+  });
+
+  $(function () {
+    $('form').submit(function (e) {
+      e.preventDefault(); // prevents page reloading
+      var text = $('#m').val();
+      $('#m').val('');
+      $.ajax({
+        url: '/messages',
+        type: 'POST',
+        data: JSON.stringify({ text: text }),
+        contentType: 'application/json; charset=utf-8'
+      });
+      return false;
+    });
+  });
+</script>
+
+</body>
+</html>
