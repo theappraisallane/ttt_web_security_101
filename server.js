@@ -4,6 +4,7 @@ const express = require('express');
 const morgan = require('morgan');
 const app = express();
 const bodyParser = require('body-parser');
+const isUrl = require('is-url');
 const session = require('express-session');
 const webshot = require('webshot');
 const http = require('http').createServer(app);
@@ -11,8 +12,6 @@ const siofu = require("socketio-file-upload");
 const io = require('socket.io')(http);
 
 app.use(siofu.router);
-
-const siteRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/;
 
 let host;
 
@@ -110,9 +109,9 @@ class PictureMessage extends Message {
 
 const processIncomingMessage = (user, message) => {
   if (message.text) {
-    const result = siteRegex.exec(message.text);
-    if (result && result[0]) {
-      return WebsiteMessage.fetchUrlAndSend(user, message.text, result[0]);
+    let url = message.text.split(' ').find(word => isUrl(word));
+    if (url) {
+      return WebsiteMessage.fetchUrlAndSend(user, message.text, url);
     }
     messages.push(new TextMessage({ user, text: message.text }));
     io.sockets.emit('message', messages[messages.length - 1]);
@@ -132,7 +131,7 @@ const messages = [];
 
 app.use(session({
   name: 'sessionId',
-  secret: 'a really secret secret',
+  secret: process.env.SECRET || 'secret',
   resave: false,
   saveUninitialized: true,
   cookie: { httpOnly: false }
