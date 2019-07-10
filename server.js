@@ -84,7 +84,7 @@ class WebsiteMessage extends TextMessage {
     if (fs.existsSync(localPath)) {
       return appendMessage();
     }
-    webshot(link, localPath, { defaultWhiteBackground: true, windowSize: { width: 800, height: 600 }, renderDelay: 1000 }, (err) => {
+    webshot(link, localPath, { defaultWhiteBackground: true, windowSize: { width: 480, height: 320}, renderDelay: 1000 }, (err) => {
       if (err) {
         console.error('Error while fetching ' + link + ': ' + err.stack);
         return fallbackMessage();
