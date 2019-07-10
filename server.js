@@ -27,17 +27,15 @@ class User {
 
 class Message {
 
-  constructor({ user, isPrivate }) {
+  constructor({ user }) {
     this.user = user;
-    this.isPrivate = isPrivate || false;
   }
 
   toJSON() {
     return {
       author: this.user.name,
       ...this,
-      user: undefined,
-      isPrivate: undefined
+      user: undefined
     }
   }
 
@@ -116,7 +114,6 @@ const processIncomingMessage = (user, message) => {
     messages.push(new TextMessage({ user, text: message.text }));
     io.sockets.emit('message', messages[messages.length - 1]);
   }
-  // TODO: crop image with imagemagick and send it
 };
 
 const userFromRequest = (req, create = true) => {
@@ -176,7 +173,7 @@ app.put('/me', (req, res) => {
 });
 
 app.get('/messages', (req, res) => {
-  res.json(messages.filter(message => !message.isPrivate));
+  res.json(messages);
 });
 
 app.post('/messages', (req, res) => {
@@ -184,11 +181,6 @@ app.post('/messages', (req, res) => {
   if (!user) { return res.sendStatus(401); }
   processIncomingMessage(user, req.body);
   res.end();
-});
-
-app.get('/private', (req, res) => {
-  const user = userFromRequest(req);
-  res.json(messages.filter(message => message.isPrivate && message.user === user));
 });
 
 app.use('/public', express.static('public'));
