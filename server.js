@@ -5,6 +5,7 @@ const csurf = require('csurf');
 const morgan = require('morgan');
 const app = express();
 const bodyParser = require('body-parser');
+const isUrl = require('is-url');
 const session = require('express-session');
 const webshot = require('webshot');
 const http = require('http').createServer(app);
@@ -13,7 +14,6 @@ const io = require('socket.io')(http);
 
 app.use(siofu.router);
 
-const siteRegex = /(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&\/=]*)/;
 const originalIndex = fs.readFileSync(__dirname + '/index.html').toString();
 const csrfRegex = /_csrf: 'xxx'/g;
 
@@ -31,17 +31,15 @@ class User {
 
 class Message {
 
-  constructor({ user, isPrivate }) {
+  constructor({ user }) {
     this.user = user;
-    this.isPrivate = isPrivate || false;
   }
 
   toJSON() {
     return {
       author: this.user.name,
       ...this,
-      user: undefined,
-      isPrivate: undefined
+      user: undefined
     }
   }
 
@@ -90,7 +88,7 @@ class WebsiteMessage extends TextMessage {
     if (fs.existsSync(localPath)) {
       return appendMessage();
     }
-    webshot(link, localPath, { windowSize: { width: 800, height: 600 }, renderDelay: 1000 }, (err) => {
+    webshot(link, localPath, { defaultWhiteBackground: true, windowSize: { width: 800, height: 600 }, renderDelay: 1000 }, (err) => {
       if (err) {
         console.error('Error while fetching ' + link + ': ' + err.stack);
         return fallbackMessage();
@@ -113,14 +111,13 @@ class PictureMessage extends Message {
 
 const processIncomingMessage = (user, message) => {
   if (message.text) {
-    const result = siteRegex.exec(message.text);
-    if (result && result[0]) {
-      return WebsiteMessage.fetchUrlAndSend(user, message.text, result[0]);
+    let url = message.text.split(' ').find(word => isUrl(word));
+    if (url) {
+      return WebsiteMessage.fetchUrlAndSend(user, message.text, url);
     }
     messages.push(new TextMessage({ user, text: message.text }));
     io.sockets.emit('message', messages[messages.length - 1]);
   }
-  // TODO: crop image with imagemagick and send it
 };
 
 const userFromRequest = (req, create = true) => {
@@ -135,7 +132,7 @@ const messages = [];
 
 app.use(session({
   name: 'sessionId',
-  secret: 'a really secret secret',
+  secret: process.env.SECRET || 'secret',
   resave: false,
   saveUninitialized: true,
   cookie: { httpOnly: false }
@@ -183,7 +180,7 @@ app.put('/me', (req, res) => {
 });
 
 app.get('/messages', (req, res) => {
-  res.json(messages.filter(message => !message.isPrivate));
+  res.json(messages);
 });
 
 app.post('/messages', (req, res) => {
@@ -191,11 +188,6 @@ app.post('/messages', (req, res) => {
   if (!user) { return res.sendStatus(401); }
   processIncomingMessage(user, req.body);
   res.end();
-});
-
-app.get('/private', (req, res) => {
-  const user = userFromRequest(req);
-  res.json(messages.filter(message => message.isPrivate && message.user === user));
 });
 
 app.use('/public', express.static('public'));
