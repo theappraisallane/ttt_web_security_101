@@ -109,19 +109,21 @@
     uploader.listenOnInput($('#f')[0]);
   }
 
+  var converter = $('<div>');
+
   function appendMessage(message) {
     var messagesElement = $('#messages');
-    var htmlText = '<li>' + message.author + ': ';
+    var htmlText = '<li>' + converter.text(message.author).html() + ': ';
     switch (message.type) {
       case 'text':
         // horrible XSS injection point
-        htmlText += message.text;
+        htmlText += converter.text(message.text).html();
         break;
       case 'media':
         htmlText += '<br><img src="' + message.pictureUrl + '"/>';
         break;
       case 'url':
-        htmlText += message.text + '<br>';
+        htmlText += converter.text(message.text).html() + '<br>';
         htmlText += '<a target="_blank" href="' + message.link + '"><img src="' + message.pictureUrl + '"/></a>';
         break;
     }
